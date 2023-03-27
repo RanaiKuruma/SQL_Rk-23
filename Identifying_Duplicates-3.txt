@@ -1,0 +1,183 @@
+-- Identifying duplicates 
+--Exploring a new dataset 
+  -- Show first few rows and all columns(limit, select * )
+  -- Identify the total no of records(count * )
+  -- Identify all columns of interest 
+  
+-- The where clause 
+-- where acts as an filter
+-- where should come after from 
+
+select * from health.user_logs 
+where measure_value = 0 ;
+
+select measure, count(*) from health.user_logs 
+where measure_value = 0 
+group by measure;
+
+select * from health.user_logs
+where measure = 'blood_pressure' and  measure_value = 0;
+
+select * from health.user_logs
+-- where measure is null
+where systolic is null;
+
+--identifying missing values 
+select measure, count(*) from health.user_logs
+where systolic is null or systolic = 0
+group by measure ;
+
+--Deal with duplicates 
+  -- how can we identify the duplicates ? 
+  --should we remove all of them (keep them distinct)
+  --How can we inspect our duplicate ? 
+  --Do we actually have to keep them ? 
+
+-- Identification of duplicate values 
+-- row count
+select count(*) from health.user_logs;
+-- select count(distinct *) from health_user_logs;
+
+--Common Table Expression (CTE)
+-- CTE is read sequentially 
+ with deduped_logs as(
+  select distinct * 
+  from health.user_logs)
+ select count(*)
+ from deduped_logs;
+ 
+ --subquery 
+ -- subquery is read inside out 
+select count(*)
+from(
+  select distinct *
+  from health.user_logs) as subquery;
+  
+--Temporary Tables 
+--writted/read to disk 
+--sequential
+--What does drop table do ? 
+-- Deletes all the data 
+
+drop table if exists deduplicated_user_logs;
+--Creating a new table from the empty table
+create temp table deduplicated_user_logs as 
+select distinct * 
+from health.user_logs;
+
+select count(*) 
+from deduplicated_user_logs;
+
+-- Usually more than one CTE blocks are used 
+with deduped_logs as (
+  select distinct * 
+  from health.user_logs
+  ),
+actual_row_count as(
+  select count(*)
+  from health.user_logs
+  ),
+final_output as (
+  select * from actual_row_count
+  )
+--Final output query  
+-- select * from deduped_logs; 
+-- select * from actual_row_count;
+select * from final_output;
+
+--keeping duplicates 
+--Identifying duplicate records
+-- select 
+--   id,
+--   log_date,
+--   measure,
+--   measure_value,
+--   systolic,
+--   diastolic,
+--   count(*) as frequency
+-- from health.user_logs
+-- group by 
+--   id,
+--   log_date,
+--   measure,
+--   measure_value,
+--   systolic,
+--   diastolic
+-- order by frequency desc
+
+--Retaining duplicate values 
+-- with groupby_counts as (
+--   select
+--     id,
+--     log_date,
+--     measure,
+--     measure_value,
+--     systolic,
+--     diastolic,
+--     count(*) as frequency
+--   from health.user_logs
+--   group by 
+--     id,
+--     log_date,
+--     measure,
+--     measure_value,
+--     systolic,
+--     diastolic
+--   )
+-- select * 
+-- from groupby_counts
+-- where frequency > 1 
+-- order by frequency desc 
+-- limit 10;
+
+-- with groupby_counts as (
+--   select
+--     id,
+--     log_date,
+--     measure,
+--     measure_value,
+--     systolic,
+--     diastolic,
+--     count(*) as frequency
+--   from health.user_logs
+--   group by 
+--     id,
+--     log_date,
+--     measure,
+--     measure_value,
+--     systolic,
+--     diastolic
+--   ),
+-- final_output as (
+--   select
+--     id,
+--     count(*) as total_record_count,
+--     sum(frequency) as actual_record_count
+--   from groupby_counts
+--   where frequency > 1
+--   group by id
+--   )  
+-- select * from final_output
+-- order by total_record_count desc ;
+
+-- Using the having clause
+
+select
+    id,
+    log_date,
+    measure,
+    measure_value,
+    systolic,
+    diastolic,
+    count(*) as frequency
+from health.user_logs
+group by 
+    id,
+    log_date,
+    measure,
+    measure_value,
+    systolic,
+    diastolic
+-- In postgreq sql you cannot refer the alias instead use the actual value     
+-- having frequency > 1; 
+having count(*) > 1;

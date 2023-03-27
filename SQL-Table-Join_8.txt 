@@ -1,0 +1,183 @@
+Types of joins 
+-inner join 
+-left join 
+-full join 
+-cross join 
+-Left semi join 
+-anti join 
+
+--Joins 
+--You need to identify two tables while joining (base and target)
+--Apply join on target table 
+
+--Create data sql query 
+drop table if exists names;
+create temp table names as 
+with input_data (iid, first_name, title) as (
+  values 
+  (1, 'Kate', 'Datacated Visualizer'),
+  (2, 'Eric', 'Captain SQL'),
+  (3, 'Danny', 'Data Wizard of Oz'),
+  (4, 'Ben', 'Mad Scientist'),
+  (5, 'Dave', 'Analytics Heretic'),
+  (6, 'Ken', 'The YouTuber')
+)
+
+select * from input_data;
+
+drop table if exists jobs;
+create temp table jobs as 
+with input_data(iid, occupation, salary) as (
+  values
+  (1, 'Cleaner', 'High'),
+  (2, 'Janitor', 'Medium'),
+  (3, 'Monkey', 'Low'),
+  (6, 'Plumber', 'Ultra'),
+  (7, 'Hero', 'Plus Ultra')
+)
+
+select * from input_data;
+
+--Inner Join 
+--base table (left)
+--target table(right)
+
+--Code 
+--Don't use * in joins cuz you will get duplicate columns
+--Don't use * in joins cuz you will lose source of columns 
+select 
+  names.iid,
+  names.first_name,
+  names.title,
+  jobs.occupation,
+  jobs.salary
+--names is the base table  
+from names 
+--jobs is the target table 
+inner join jobs 
+  on names.iid = jobs.iid;
+
+--Left Join 
+--Meaning
+  --Take everything from the base table and look for the things that match the target table
+  --If they don't match keep the records just put in a null that don't match.
+select 
+  names.iid,
+  names.first_name,
+  names.title,
+  jobs.occupation,
+  jobs.salary 
+from names 
+left join jobs 
+  on names.iid = jobs.iid;
+
+--Full Join
+--Brings out two common parameters from the base and the target table
+select 
+  names.iid as name_id,
+  jobs.iid as job_id,
+  names.first_name,
+  names.title,
+  jobs.occupation,
+  jobs.salary
+from names 
+full join jobs 
+  on names.iid = jobs.iid;
+
+--Cross Join
+--Used to generate combinations of data 
+--There is no on condition (logical condition)
+--Just generates the data 
+select 
+  names.iid as name_iid,
+  jobs.iid as jobs_iid,
+  names.first_name,
+  names.title,
+  jobs.occupation,
+  jobs.salary
+from names 
+cross join jobs;
+
+drop table if exists names;
+create temp table names as 
+with input_data (iid, first_name, title) as (
+  values 
+  (1, 'Kate', 'Datacated Visualizer'),
+  (2, 'Eric', 'Captain SQL'),
+  (3, 'Danny', 'Data Wizard of Oz'),
+  (4, 'Ben', 'Mad Scientist'),
+  (5, 'Dave', 'Analytics Heretic'),
+  (6, 'Ken', 'The YouTuber')
+)
+
+select * from input_data;
+
+drop table if exists jobs;
+create temp table jobs as 
+with input_data(iid, occupation, salary) as (
+  values
+  (1, 'Cleaner', 'High'),
+  (2, 'Janitor', 'Medium'),
+  (3, 'Monkey', 'Low'),
+  (6, 'Plumber', 'Ultra'),
+  (7, 'Hero', 'Plus Ultra')
+)
+
+select * from input_data;
+
+drop table if exists new_jobs; 
+create temp table new_jobs as 
+with input_table(iid, occupation, salary) as (
+  values 
+   (1, 'Cleaner', 'High'),
+   (1, 'Cleaner', 'Very High'),
+   (2, 'Janitor', 'Medium'),
+   (3, 'Monkey', 'Low'),
+   (3, 'Monkey', 'Very Low'),
+   (6, 'Plumber', 'Ultra'),
+   (7, 'Hero', 'Plus Ultra')
+)
+
+select * from input_table;
+
+--Duplicate inner join 
+select 
+  names.iid,
+  names.first_name,
+  names.title,
+  new_jobs.occupation,
+  new_jobs.salary
+from names 
+inner join new_jobs
+  on names.iid = new_jobs.iid 
+
+--Left Semi Join 
+--return me the rows from the base table which exist in the target table but I don't need the columns and rows from the target table
+--target table is like a filter 
+--In postGre's where exists is used instead of left semi join (one and the same thing)
+
+select 
+  names.iid,
+  names.first_name
+from names 
+where exists (
+  select 1 
+  from new_jobs 
+  where names.iid = new_jobs.iid 
+);
+
+--Anti Join
+select 
+  names.iid,
+  names.first_name
+from names 
+where not exists(
+  select 1
+  from new_jobs
+  where names.iid = new_jobs.iid
+);
+
+Now - a few things to consider when you need to combine the datasets in practice:
+Do I have duplicates in my individual results set?
+Do I have duplicates in my overall results set after UNION ALL?
+Should I refactor the query to generate distinct values or use a GROUP BY?

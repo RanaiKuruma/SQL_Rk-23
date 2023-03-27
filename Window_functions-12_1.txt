@@ -1,0 +1,136 @@
+--SQL Logical Execution Order
+--All SQL queries are 'ran' in the following order 
+-- FROM
+  -- WHERE filters
+  -- ON table join conditions
+-- GROUP BY
+-- SELECT aggregate function calculations
+-- HAVING
+-- Window functions
+-- ORDER BY
+-- LIMIT
+
+-- Basic SELECT statement
+SELECT 
+  measure,
+  measure_value
+FROM health.user_logs
+LIMIT 10;
+
+--Group By and Aggregate Count
+SELECT 
+  measure,
+  COUNT(*) AS frequency 
+FROM health.user_logs
+GROUP BY measure;
+
+-- Window Function
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total
+  -- SUM(frequency) OVER () AS total
+FROM health.user_logs 
+GROUP BY measure;
+
+--Referencing a column directly like this would only work if we were to refer to frequency via a subquery or CTE alias
+--CTE method 
+WITH summarised_data AS (
+  SELECT 
+    measure,
+    COUNT(*) AS frequency
+  FROM health.user_logs
+  GROUP BY measure
+)
+SELECT 
+  measure,
+  frequency,
+  SUM(frequency) OVER () AS total 
+FROM summarised_data;
+
+-- HAVING Clause
+--HAVING is used to filter out records based off the GROUP BY results
+--only be applied to the GROUP BY columns.
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total 
+FROM health.user_logs
+GROUP BY measure
+HAVING measure != 'weight';
+
+-- What happens if you use HAVING with a column which is not part of the GROUP BY?
+--Throws an error 
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total
+FROM health.user_logs
+GROUP BY measure
+HAVING frequency > 2800;
+
+--What happens if we use an expression instead of the frequency column name?
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total 
+FROM health.user_logs
+GROUP BY measure
+HAVING COUNT(*) > 2800;
+
+-- What if we use that window function expression for the total column instead?
+--window functions are not allowed in having 
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total
+FROM HEALTH.user_logs
+GROUP BY measure
+HAVING SUM(COUNT(*)) OVER () > 2800;
+
+--WHERE Filters
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total
+FROM health.user_logs
+WHERE measure_value >= 100
+GROUP BY measure;
+
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total
+FROM health.user_logs
+WHERE measure_value >= 100
+GROUP BY measure
+HAVING measure != 'weight';
+
+--ORDER BY and LIMIT
+WITH summarised_data AS (
+  SELECT 
+    measure
+  FROM health.user_logs
+  LIMIT 1000
+)
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total
+FROM summarised_data 
+GROUP BY measure;
+
+--use the RANDOM() function to generate us a random number and use it with a WHERE filter to only keep a 10% random sample
+WITH summarised_data AS (
+SELECT 
+  measure
+FROM health.user_logs
+WHERE RANDOM() <= 0.1
+)
+
+SELECT 
+  measure,
+  COUNT(*) AS frequency,
+  SUM(COUNT(*)) OVER () AS total 
+FROM summarised_data 
+GROUP BY measure

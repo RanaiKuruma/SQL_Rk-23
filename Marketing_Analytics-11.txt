@@ -1,0 +1,147 @@
+Always ask the 5 w's 
+Who ? 
+What ? 
+Where ?(Business context) 
+When ? 
+Why ? 
+
+Data Investigation
+    -Entity relationship diagram (erd)
+    -To create erd use dbdiagram.io 
+
+--film_actor table (Base Table)
+select * 
+from dvd_rentals.film_actor 
+limit 10;
+
+--actor table (Target Table)
+select * 
+from dvd_rentals.actor 
+limit 10;
+
+--Foreign Key = actor_id 
+--Purpose of joining film_actor and actor tables  - An actor can perform multiple films , generate a data set that gives the films performed by an actor 
+
+--Finding out whether the foreign key has one-to-one relationship or one-to-many relationship ? 
+--one-to-many relationship
+--Same actor can star in multiple films 
+with base_counts as (
+  select 
+    actor_id,
+    count(*) as record_counts 
+  from dvd_rentals.film_actor
+  group by actor_id
+)
+
+select 
+  record_counts,
+  count(distinct actor_id) as unique_record_count
+from base_counts 
+group by record_counts 
+order by record_counts;
+
+--One - to - One relationship 
+--Each actor has performed  particular no of unique films 
+with base_counts as (
+  select 
+    actor_id,
+    count(*) as record_count
+  from dvd_rentals.actor
+  group by actor_id
+)
+
+--How many foreign keys exist in film_actor and actor table ? 
+SELECT 
+  COUNT(DISTINCT actor_id) 
+FROM dvd_rentals.film_actor
+WHERE EXISTS (
+SELECT actor_id
+FROM dvd_rentals.actor
+WHERE film_actor.actor_id = actor.actor_id
+);
+
+
+--Reason for avoiding these tables ? 
+--These tables should be avoided as there are 0 foreign keys in the dvd_rentals.film_actor and dvd_rentals.actor
+
+--How many foreign keys only and only exists in the film_actor table ? 
+--No foreign keys 
+SELECT 
+  COUNT(distinct film_actor.actor_id)
+FROM  dvd_rentals.film_actor
+WHERE NOT exists (
+  SELECT 
+    actor_id
+  FROM dvd_rentals.actor
+  WHERE film_actor.actor_id = actor.actor_id
+);
+
+--How many foreign keys only and only exists in the actor table ?
+--No foreign keys 
+SELECT  
+  COUNT(distinct actor.actor_id)
+FROM dvd_rentals.actor
+WHERE NOT exists (
+  SELECT  
+    actor_id
+  FROM dvd_rentals.film_actor
+  WHERE actor.actor_id = film_actor.actor_id
+);
+
+--What impact would joining these additional tables to our existing finalized query between the other 5 tables result in? 
+--Getting an error : missing FROM-clause entry for table "film_actor"
+DROP TABLE IF EXISTS complete_joint_dataset;
+CREATE TEMP TABLE complete_joint_dataset AS
+SELECT
+  rental.customer_id,
+  inventory.film_id,
+  film.title,
+  film_category.category_id,
+  film_actor.actor_id,
+  actor.actor_id,
+  category.name AS category_name
+FROM dvd_rentals.rental
+
+INNER JOIN dvd_rentals.inventory
+  ON rental.inventory_id = inventory.inventory_id
+INNER JOIN dvd_rentals.film
+  ON inventory.film_id = film.film_id
+  
+INNER JOIN dvd_rentals.film_category
+  ON film.film_id = film_category.film_id
+INNER JOIN dvd_rentals.category
+  ON film_category.category_id = category.category_id;
+  
+INNER JOIN dvd_rentals.film_actor 
+  ON film_category.film_id = film_actor.film_id
+INNER JOIN dvd_rentals.actor
+  ON film_actor.actor_id = actor.actor_id
+  
+SELECT * FROM complete_joint_dataset LIMIT 10; 
+
+-- How many rows would appear if you literally just inner joined every single table by the relevant foreign keys?
+DROP TABLE IF EXISTS left_inner_join;
+CREATE TEMP TABLE left_inner_join AS 
+SELECT
+  rental.customer_id,
+  inventory.film_id,
+  film.title,
+  category.name AS category_name
+FROM dvd_rentals.rental
+LEFT JOIN dvd_rentals.inventory
+  ON rental.inventory_id = inventory.inventory_id
+LEFT JOIN dvd_rentals.film
+  ON inventory.film_id = film.film_id
+LEFT JOIN dvd_rentals.film_category
+  ON film.film_id = film_category.film_id
+LEFT JOIN dvd_rentals.category
+  ON film_category.category_id = category.category_id
+LEFT JOIN dvd_rentals.film
+  ON film.film_id = film_actor.film_id
+LEFT JOIN dvd_rentals.actor
+  ON film_actor.actor_id = actor.actor_id
+  
+SELECT 
+  'Left Join' AS join_type,
+  count(*) as record_count 
+from left_inner_join;

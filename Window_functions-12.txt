@@ -1,0 +1,81 @@
+--Window functions are operations/calculations performed on 'window frames' or group of rows in dataset
+DROP TABLE IF EXISTS customer_sales;
+-- Understanding Partition By
+CREATE TEMP TABLE customer_sales AS 
+WITH input_data(customer_id, sales) AS (
+VALUES
+('A', 300),
+('A', 150),
+('B', 100),
+('B', 200)
+)
+SELECT * FROM input_data;
+
+-- Sum Window Function
+SELECT 
+  customer_id,
+  sales,
+  SUM(sales) OVER(
+  PARTITION BY customer_id
+  ) AS sum_sales
+FROM customer_sales;
+
+--Partition By 2 Columns 
+DROP TABLE IF EXISTS customer_sales;
+CREATE TEMP TABLE customer_sales AS 
+WITH input_data(customer_id,sale_id,sales) AS (
+VALUES
+('A', 1, 300),
+('A', 1, 150),
+('A', 2, 100),
+('B', 3, 200)
+)
+SELECT * FROM input_data;
+
+--Sum Window Functions with 2 columns in PARITION BY
+SELECT
+  customer_id,
+  sales,
+  SUM(sales) OVER (
+    PARTITION BY
+      customer_id,
+      sale_id
+  ) AS sum_sales
+FROM customer_sales;
+
+--Multiple Level Partition By
+SELECT 
+  customer_id,
+  sale_id,
+  sales,
+  SUM(sales) OVER (
+    PARTITION BY 
+      customer_id,
+      sale_id
+  ) AS sum_sales,
+  SUM(sales) OVER (
+    PARTITION BY 
+      customer_id
+  ) AS customer_sales,
+  SUM(sales) OVER () AS total_sales 
+FROM customer_sales;
+
+SELECT 
+  customer_id,
+  sale_id,
+  sales, 
+  SUM(sales) OVER (
+    PARTITION BY 
+      customer_id,
+      sale_id
+  ) AS sum_sales,
+  
+  ROUND(
+    AVG(sales) OVER (
+      PARTITION BY customer_id),
+      2
+      ) AS avg_cust_sales,
+      
+  MAX(sales) OVER () AS max_sales 
+FROM customer_sales;
+

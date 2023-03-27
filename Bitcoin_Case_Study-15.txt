@@ -1,0 +1,131 @@
+--Bitcoin Case Study 
+--Inspecting the Data
+SELECT * 
+FROM trading.daily_btc
+LIMIT 10;
+
+--1 What is the earliest and latest market_date values?
+SELECT 
+  MAX(market_date) AS latest_market_date,
+  MIN(market_date) AS earliest_market_date
+FROM trading.daily_btc;
+
+--2 What was the historic all-time high and low values for the `close_price` rounded to 6 decimal places and their dates?
+(
+  SELECT 
+    market_date,
+    close_price
+  FROM trading.daily_btc
+  ORDER BY close_price
+  LIMIT 10
+)
+UNION
+(
+  SELECT 
+    market_date,
+    close_price
+  FROM trading.daily_btc
+  ORDER BY close_price DESC NULLS LAST 
+  LIMIT 10
+);
+
+--3 Which date had the most `volume` traded (to nearest integer) and what was the `close_price` for that day?
+WITH cte AS (
+SELECT 
+  market_date,
+  close_price,
+  volume,
+  ROW_NUMBER() OVER (
+    ORDER BY volume DESC NULLS LAST 
+  ) AS _row_number 
+FROM trading.daily_btc
+)
+
+SELECT 
+  market_date,
+  close_price
+FROM cte 
+WHERE _row_number = 1;
+
+/*--
+4 How many days had a `low_price` price which was 10% less than the `open_price` 
+- what percentage of the total number of trading days is this rounded to the nearest integer?
+*/
+WITH cte AS (
+SELECT 
+  SUM(
+    CASE 
+      WHEN low_price < 0.9* open_price THEN 1 
+      ELSE 0 
+      END
+  ) low_price_days,
+  COUNT(*) AS total_days 
+FROM trading.daily_btc
+WHERE volume IS NOT NULL 
+)
+
+SELECT 
+  low_price_days,
+  ROUND(100 * low_price_days / total_days :: NUMERIC) AS _low_price_percentage
+FROM cte ;
+
+--5 What percentage of days have a higher `close_price` than `open_price` rounded to the nearest whole percentage?
+WITH cte AS (
+SELECT
+  ROUND(
+    SUM(
+      CASE 
+        WHEN close_price > open_price THEN 1
+        ELSE 0
+        END
+    ),2
+  ) AS close_price_higher_days,
+  COUNT(*) AS total_days 
+FROM trading.daily_btc
+)
+
+SELECT 
+  close_price_higher_days,
+  ROUND(100 * close_price_higher_days / total_days :: NUMERIC) AS close_price_higher_days_percentage
+FROM cte ;
+
+--6 What was the largest difference between `high_price` and `low_price` and which date did it occur?
+WITH cte AS (
+SELECT 
+  market_date,
+  high_price - low_price AS price_difference
+FROM trading.daily_btc
+)
+
+SELECT 
+  market_date,
+  price_difference
+FROM cte 
+ORDER BY price_difference DESC NULLS LAST
+LIMIT 10;
+
+/*---
+7 If you invested $10,000 on the 1st January 2016 - how much is your investment worth in 1st of January 2021 and what 
+is your total growth of your investment as a percentage of your original investment?
+*/--
+WITH start_BTC_investment AS (
+SELECT 
+  10000 / close_price AS BTC_owned,
+  close_price AS start_price
+FROM trading.daily_btc
+WHERE market_date = '2016-01-01'
+),
+end_BTC_investment AS (
+SELECT 
+  close_price AS end_price
+FROM trading.daily_btc
+WHERE market_date = '2021-01-01'
+)
+
+SELECT 
+  BTC_owned,
+  start_price,
+  end_price,
+  ROUND(100 * (end_price - start_price) / start_price :: NUMERIC) AS growth_rate_BTC_investment
+FROM start_BTC_investment
+CROSS JOIN end_BTC_investment;

@@ -1,0 +1,105 @@
+##Select and sort 
+
+-- Select and From (Kind of like if and else in Python)
+
+## Select 
+-- The select statment selects columns. 
+--selection according to column.
+
+#Syntax 
+select
+	column_name1,
+	column_name2 
+from schema_table.table_name 	
+
+-- What is a schema ? 
+-- A schema is a collection of objects under a category (Diagram representation).
+--; is a delimiter it shows the end of operations in sql (You can begin another operation after this ).
+
+#Code 
+* selects everything from the table 
+select * from balanced_tree.product_details;
+select * from dannys_diner.menu;
+
+-- To select specific columns 
+select 
+  language_id,
+  name 
+from dvd_rentals.language;  
+
+
+-- To limit the no of rows 
+-- use limit with data that you have never seen before 
+select * from dvd_rentals.actor 
+limit 10;
+
+--Sorting text columns 
+select country --country is a text 
+from dvd_rentals.country 
+--By default it is sorted alphabetically
+-- order by statment needs to be after from and before limit 
+-- orde by is in ascending order by default 
+order by country
+limit 5 ;
+
+--sort and limit 
+select total_sales 
+from dvd_rentals.sales_by_film_category
+order by 1 --For lowest values 
+limit 5;
+
+--sort descending 
+select country from dvd_rentals.country 
+order by country desc 
+limit 5;
+
+--sort with multiple columns 
+--ascending
+select category,total_sales 
+from dvd_rentals.sales_by_film_category
+order by total_sales 
+
+-- descending  
+select payment_date from dvd_rentals.payment 
+order by payment_date  
+limit 1 ;
+
+--sort by multiple columns
+
+drop table if exists sample_table;
+create temp table sample_table as 
+with raw_data (id, column_a, column_b) as (
+  values 
+  -- row data segregated along columns 
+  (1, 0, 'A'),
+  (2, 0, 'B'),
+  (3, 1, 'C'),
+  (4, 1, 'D'),
+  (5, 2, 'D'),
+  (6, 3, 'D')
+)
+
+select * from raw_data; 
+select * from sample_table; 
+
+
+--sort by 2 columns in ascending order 
+select * from sample_table 
+--first sorting takes place accoding to column_a and second sorting takes place accoring to column_b
+order by column_a, column_b;
+
+--sort ascending and descending order 
+select * from sample_table 
+order by column_a desc, column_b;
+
+--sort 2 columns with same order 
+select * from sample_table 
+order by column_a desc, column_b desc ; 
+
+--change column order 
+select * from sample_table 
+order by column_a, column_b desc ;
+
+select * from sample_table 
+order by column_a desc, column_b;
+

@@ -1,0 +1,75 @@
+--Implementation of central measures of tendency 
+with sample_data(example_values) as (
+  values 
+  (82), (51), (144), (84), (120), (148), (148), (108), (160), (86)
+  )
+select 
+  --Mean
+  avg(example_values) as Mean,
+  --Median
+  -- 'within group' is used to find population parameter within columns
+  percentile_cont(0.5) within group(order by example_values) as Median,
+  --Mode 
+  mode() within group(order by example_values) as Mode
+from sample_data;  
+
+
+select 
+  --Mean
+  avg(measure_value) as avg_weight,
+  --Median
+  percentile_cont(0.5) within group(order by measure_value) as median_weight,
+  --Mode 
+  mode() within group(order by measure_value) as common_weight
+
+from health.user_logs 
+where measure = 'weight';
+
+--Spread Statistics
+select 
+  avg(measure_value) as average_wt,
+  percentile_cont(0.5) within group (order by measure_value) as median_weight,
+  mode() within group (order by measure_value) as mode_weight,
+  --Spread Statistics
+  min(measure_value) as min_weight,
+  max(measure_value) as max_weight,
+  max(measure_value) - min(measure_value) as difference_of_weight
+from health.user_logs
+where measure = 'weight'
+  --after inspecting the data 
+  -- and measure_value > 0 
+  -- and measure_value < 201;
+  and measure_value between 1 and 201;
+  
+-- Inspecting the data 
+-- select measure_value
+-- from health.user_logs
+-- where measure = 'weight'
+-- order by 1 desc  
+-- limit 20 ;
+
+--Variance and Standard Deviation
+select 
+  variance(measure_value) as variance_weight,
+  stddev(measure_value) as stddev_weight
+from health.user_logs 
+where measure = 'weight'
+    and measure_value between 1 and 201;
+
+-- All measures of central tendency implemented 
+select 
+  'weight' as measure,
+  round(max(measure_value),2) as max_weight,
+  round(min(measure_value),2) as min_weight,
+  round(avg(measure_value),2) as average_weight,
+  round(
+    cast(percentile_cont(0.5) within group(order by measure_value) as numeric),2
+    ) as median_value, 
+  round(
+    mode() within group(order by measure_value),
+    2
+    ) as mode_value, 
+  round(variance(measure_value),2) as variance_weight,
+  round(stddev(measure_value),2) as stdev_weight
+from health.user_logs 
+where measure = 'weight';    

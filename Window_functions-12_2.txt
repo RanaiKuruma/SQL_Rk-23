@@ -1,0 +1,22 @@
+--Ordered Window Functions
+DROP TABLE IF EXISTS customer_sales;
+CREATE TEMP TABLE customer_sales AS 
+WITH input_data (customer_id, sales_date, sales) AS (
+  VALUES 
+  ('A', '2021-01-01'::DATE, 300),
+  ('A', '2021-01-02'::DATE, 150),
+  ('B', '2021-01-03'::DATE, 100),
+  ('B', '2021-01-02'::DATE, 200)
+)
+SELECT  * FROM input_data;
+
+--RANK Window Function with default ORDER BY 
+SELECT 
+  customer_id, 
+  sales_date, 
+  sales,
+  RANK() OVER (
+    PARTITION BY customer_id
+    ORDER BY sales_date
+  ) AS sales_date_rank 
+FROM customer_sales;

@@ -1,0 +1,76 @@
+--Set Operations 
+--All columns must be of same data type 
+
+drop table if exists names;
+create temp table names as 
+with input_data (iid, first_name, title) as (
+  values 
+  (1, 'Kate', 'Datacated Visualizer'),
+  (2, 'Eric', 'Captain SQL'),
+  (3, 'Danny', 'Data Wizard of Oz'),
+  (4, 'Ben', 'Mad Scientist'),
+  (5, 'Dave', 'Analytics Heretic'),
+  (6, 'Ken', 'The YouTuber')
+)
+
+select * from input_data;
+
+drop table if exists jobs;
+create temp table jobs as 
+with input_data(iid, occupation, salary) as (
+  values
+  (1, 'Cleaner', 'High'),
+  (2, 'Janitor', 'Medium'),
+  (3, 'Monkey', 'Low'),
+  (6, 'Plumber', 'Ultra'),
+  (7, 'Hero', 'Plus Ultra')
+)
+
+select * from input_data;
+
+--Union
+select * from names where first_name = 'Danny'
+union 
+select * from names where first_name = 'Kate';
+
+--Union All 
+select * from names where first_name = 'Danny'
+union all
+select * from names where first_name = 'Kate';
+
+--Intersect
+select * from names 
+intersect 
+select * from names where left(first_name, 1) = 'K';
+
+--Except
+--Except works as an anti-join
+select * from names 
+except 
+select * from names where left(first_name, 1) = 'K';
+
+--Multiple Set Operations
+select * from names where first_name = 'Danny'
+union 
+select * from names where Left(first_name, 1) = 'K'
+except 
+select * from names where first_name = 'Kate';
+
+--Common union mistakes 
+--Errors 
+--Each union query must have same no of columns
+select first_name from names where first_name = 'Danny'
+union 
+select iid, first_name from names where left(first_name, 1) = 'K';
+
+--UNION types text and integer cannot be matched 
+select first_name, iid from names where first_name = 'Danny'
+union
+select iid, first_name from names where left(first_name, 1) = 'K';
+
+--Mistakes 
+select iid, occupation, salary from jobs where iid = 2 
+union
+select iid, first_name, title from names where first_name = 'Danny'
+union 
+select * from names where first_name = 'Kate';

@@ -1,0 +1,81 @@
+select *
+from health.user_logs limit 10;
+
+--How many unique users exist in the logs dataset?
+select 
+  count(distinct id) as unique_user_id
+from health.user_logs;  
+
+--Creating a temporary table 
+drop table if exists user_measure_count;
+create temp table user_measure_count as (
+  select 
+    id,
+    count(*) as measure_count,
+    count(distinct id) as unique_measure_count
+  from health.user_logs
+  group by 1
+  );
+
+--How many total measurements do we have per user on average rounded to the nearest integer?
+select 
+  round(avg(measure_count),2) as total_user_avg_measurement,
+  round(
+    cast(percentile_cont(0.5) within group(order by measure_count) as numeric),2
+    ) as median 
+from user_measure_count;  
+
+--What about the median number of measurements per user?
+select 
+  round(
+    cast(percentile_cont(0.5) within group(order by measure_count) as numeric),2
+    ) as median 
+from user_measure_count;  
+
+--How many users have 3 or more measurements?
+select 
+  count(measure_count) as measure_count 
+from user_measure_count 
+where measure_count >= 3;
+
+-- How many users have 1,000 or more measurements?
+select 
+  count(measure_count) as measure_count 
+from user_measure_count 
+where measure_count >= 1000;
+
+-- How many users have logged blood glucose measurements?
+select 
+  count(distinct id)
+from health.user_logs
+where measure = 'blood_glucose';
+
+--Creating a temporary table 
+drop table if exists user_measure_count;
+create temp table user_measure_count as (
+  select 
+    id,
+    count(*) as measure_count,
+    count(distinct measure) as unique_measure_count
+  from health.user_logs
+  group by 1
+  );
+
+--How many users have at least 2 types of measurements?
+select 
+  count(*)
+from user_measure_count 
+where unique_measure_count >= 2;
+
+--How many users have all 3 measures - blood glucose, weight and blood pressure?
+-- select 
+--   count(*)
+-- from user_measure_count 
+-- where unique_measure_count = 3;
+
+-- For users that have blood pressure measurements, what is the median systolic/diastolic blood pressure values?
+select 
+  percentile_cont(0.5) within group(order by systolic) as median_systolic_value,
+  percentile_cont(0.5) within group(order by diastolic) as median_systolic_value
+from health.user_logs
+where measure = 'blood_pressure';

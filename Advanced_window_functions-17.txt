@@ -1,0 +1,129 @@
+
+--Window Frame Clause 
+SELECT 
+  market_date,
+  volume,
+  SUM(volume) OVER (ORDER BY market_date) AS cumulative_sum,
+  SUM(volume) OVER (
+    ORDER BY market_date
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS default_cumulative_sum 
+
+FROM updated_daily_btc 
+ORDER BY market_date 
+LIMIT 10;
+
+--Window Frame Components 
+  --FRAME MODE BETWEEN
+  --START FRAME AND END FRAME 
+  --FRAME EXCLUSION
+
+-- Window Frame Modes
+-- RANGE vs ROWS (vs GROUPS)
+
+-- Start and End Frames
+-- PRECEDING vs FOLLOWING
+-- UNBOUNDED vs OFFSET
+
+-- Frame Exclusions
+-- CURRENT ROW vs TIES vs NO OTHERS (vs GROUP)
+
+DROP TABLE IF EXISTS frame_example;
+CREATE TEMP TABLE frame_example AS 
+WITH input_data(val) AS (
+  VALUES 
+  (1),
+  (1),
+  (2),
+  (6),
+  (9),
+  (9),
+  (20),
+  (20),
+  (25)
+)
+SELECT 
+  val,
+  ROW_NUMBER() OVER w AS _row_number,
+  DENSE_RANK() OVER w AS _dense_rank
+FROM input_data 
+WINDOW 
+  w AS (ORDER BY val);
+
+SELECT * 
+FROM frame_example;
+
+SELECT 
+  val,
+  SUM(val) OVER (
+    ORDER BY val 
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS cumulative_sum,
+  _row_number,
+  _dense_rank
+FROM frame_example;
+
+--Window Frame Modes 
+-- GROUPS mode will use the same cumulative sum value for records which have equal values
+-- ROWS will perform the cumulative sum in a way which we intuitively think about it as having the row values added to eachother one by one
+--UNBOUNDED PRECEDING means to include records from the start of the window frame.
+--CURRENT ROW means to only include up to the current record for the window function calculation.
+SELECT
+  val,
+  SUM(val) OVER (
+    ORDER BY val
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS _range,
+  SUM(val) OVER (
+    ORDER BY val
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW 
+  ) AS _rows,
+  SUM(val) OVER (
+    ORDER BY val
+    GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW 
+  ) AS _groups,
+  _row_number,
+  _dense_rank
+FROM frame_example;
+
+--Frame Exclusion
+--There are 4 options for excluding records within the window frame:
+-- CURRENT ROW
+-- TIES
+-- GROUP
+-- NO OTHERS (default)
+
+-- you must have an explicit window frame clause inside the OVER clause otherwise the frame exclusion will cause an error!
+-- SELECT 
+--   val,
+--   SUM(val) OVER (
+--     ORDER BY val
+--     EXCLUDE CURRENT ROW 
+--   ) AS _excl_current_row 
+-- FROM frame_example;
+
+SELECT 
+  val,
+  SUM(val) OVER (
+    ORDER BY val
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS _default,
+  SUM(val) OVER (
+    ORDER BY val
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    EXCLUDE CURRENT ROW
+  ) AS _excl_current_row,
+  SUM(val) OVER (
+    ORDER BY val
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    EXCLUDE TIES 
+  ) AS _excl_ties,
+  SUM(val) OVER (
+    ORDER BY val
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW 
+    EXCLUDE GROUP
+  ) AS _excl_groups,
+  _row_number,
+  _dense_rank
+FROM frame_example;
+

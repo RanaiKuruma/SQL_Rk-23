@@ -1,0 +1,61 @@
+Records/ row 
+
+--counting the no of rows 
+select
+  --count(1) or count(column_name) is also valid
+  --count(*) is made for row count 
+  count(*) as row_count 
+from dvd_rentals.film_list;
+
+--selecting distinct values 
+select distinct rating
+from dvd_rentals.film_list;
+
+--count of unique values 
+--unique values in a specfic column
+select count(distinct(category)) as unique_category_count
+from dvd_rentals.film_list ;
+
+--Group By (You group by columns) 
+-- "frequency" == count(*)
+--count(*) does not check null value 
+--when you use group by only 1 row is returned for each group 
+
+--aggregate function
+select rating, count(*) as frequency 
+from dvd_rentals.film_list 
+-- the group by statment should come after from and before order by 
+-- the filters should come between "from" and group by
+group by rating;
+
+-- adding a percentage 
+select rating, count(*) as frequency, count(*):: numeric / sum(count(*)) over () as percentage
+from dvd_rentals.film_list
+group by rating 
+order by frequency desc;
+
+--multiple columns group by 
+select 
+rating, category,count(*) as frequency 
+from dvd_rentals.film_list
+
+--order of select and group by should be kept same 
+group by rating, category 
+order by frequency desc 
+limit 5 ;
+
+--group by ordinal syntax 
+select rating,category, count(*) as frequency
+from dvd_rentals.film_list 
+--postgreqsql is 1 indexed
+group by 1,2;
+
+select
+  rating,
+  category,
+  count(*) as frequency
+  
+from dvd_rentals.film_list 
+group by rating, category
+order by frequency desc 
+limit 5 ; 

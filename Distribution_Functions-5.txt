@@ -1,0 +1,93 @@
+--Distribution Functions 
+--Data Algorithm
+  --Sort values in ascending order 
+  --Assign 1-100 percentile value 
+  --For each percentile aggregate:
+    --Calculate floor and ceiling value 
+    --Calculate record count 
+
+--Analytical Functions 
+--All window functions are analytical functions
+--All analytical functions are not window functions 
+
+select 
+  measure_value,
+  ntile(100) over(
+    order by 
+      measure_value
+  ) as percentile
+
+from health.user_logs
+where measure = 'weight';
+
+with percentile_values as (
+  select 
+    measure_value,
+    ntile(100) over(
+    order by 
+      measure_value
+  ) as percentile
+
+  from health.user_logs
+  where measure = 'weight'
+  )
+
+select 
+  percentile,
+  min(measure_value) as floor_value,
+  max(measure_value) as ceiling_value,
+  count(*) as percentile_counts 
+from percentile_values 
+group by percentile 
+order by percentile ;
+
+--Ranking Functions 
+  --Row_number 
+  --Rank
+  --Dense_Rank
+--Removing Outliers 
+drop table if exists clean_weight_logs ;
+create temp table clean_weight_logs as (
+  select * 
+  from health.user_logs 
+  where measure = 'weight'
+    -- and measure_value >0
+    -- and measure_value <201
+    and measure_value between 0 and 201
+);
+
+with percentile_values as (
+  select 
+    measure_value,
+    ntile(100) over(
+    order by 
+      measure_value
+  ) as percentile
+
+  from clean_weight_logs 
+  )
+
+select 
+  percentile,
+  min(measure_value) as floor_value,
+  max(measure_value) as ceiling_value,
+  count(*) as percentile_counts 
+from percentile_values 
+group by percentile 
+order by percentile desc;
+
+--Frequency Distribution 
+  --Find the min,max boundary values 
+  --Split it into N equal buckets/blocks by values (width_bucket function is used)
+  --For each bucket 
+    --Calculate the average value 
+    --Calculate record count 
+    
+select 
+  --width_bucket(column_name, min_value, max_value, no_of_bins)
+  width_bucket(measure_value, 0, 200, 20) as bucket,
+  avg(measure_value) as measure_value,
+  count(*) as frequency 
+from clean_weight_logs 
+group by bucket
+order by bucket ;

@@ -1,0 +1,230 @@
+
+--Hypothesis-1
+--The number of unique inventory_id records will be equal in both dvd_rentals.rental and dvd_rentals.inventory tables
+-- select 
+--   count(distinct inventory_id)
+-- from dvd_rentals.rental;
+--4580
+
+-- select 
+--   count(distinct inventory_id)
+-- from dvd_rentals.inventory;
+--4581
+
+--Hypothesis-2
+-- There will be a multiple records per unique inventory_id in the dvd_rentals.rental table
+with counts_base as (
+  select 
+    inventory_id as target_column_values,
+    count(*) as row_counts 
+  from dvd_rentals.rental 
+  group by target_column_values
+)
+
+select 
+  row_counts, 
+  count(target_column_values) as count_of_target_values 
+from counts_base 
+group by row_counts 
+order by row_counts;
+
+--Hypothesis-3
+--There will be multiple inventory_id records per unique film_id value in the dvd_rentals.inventory table
+with counts_base as (
+  select 
+    film_id as target_column_values,
+    count(distinct inventory_id) as unique_record_counts 
+  from dvd_rentals.inventory
+  group by target_column_values
+)
+
+select 
+  unique_record_counts,
+  count(target_column_values) as count_of_target_values
+from counts_base 
+group by  unique_record_counts
+order by  unique_record_counts;
+
+with counts_base as (
+  select 
+    inventory_id as foreign_key_values,
+    count(*) as row_counts 
+  from dvd_rentals.rental 
+  group by foreign_key_values 
+)
+
+select 
+  row_counts,
+  count(foreign_key_values) as count_foreign_keys 
+from counts_base 
+group by row_counts 
+order by row_counts;
+
+with counts_base as (
+  select
+    inventory_id as foreign_key_values,
+    count(*) as row_counts 
+  from dvd_rentals.inventory
+  group by foreign_key_values
+)
+
+select 
+  row_counts,
+  count(foreign_key_values) as count_of_foreign_keys 
+from counts_base 
+group by row_counts 
+order by row_counts;
+
+
+--Foreign Key Overlap Analysis 
+select 
+  count(distinct inventory_id)
+from dvd_rentals.rental 
+where not exists(
+  select 
+    inventory_id
+  from dvd_rentals.inventory
+  where rental.inventory_id = inventory.inventory_id
+);
+
+select 
+  count(distinct inventory_id)
+from dvd_rentals.inventory
+where not exists(
+  select 
+    inventory_id 
+  from dvd_rentals.rental 
+  where inventory.inventory_id = rental.inventory_id
+);
+
+--On further inspection 
+select * 
+from dvd_rentals.inventory
+where not exists (
+select 
+  inventory_id
+from dvd_rentals.rental
+-- where rental.inventory_id = inventory.inventory_id
+where inventory.inventory_id = rental.inventory_id
+);
+
+select 
+  count(distinct rental.inventory_id)
+from dvd_rentals.rental 
+where exists(
+  select 
+    inventory_id 
+  from dvd_rentals.inventory
+  where rental.inventory_id = inventory.inventory_id
+);
+
+drop table if exists left_rental_join;
+create temp table left_rental_join as(
+select 
+  rental.customer_id,
+  rental.inventory_id,
+  inventory.film_id
+from dvd_rentals.rental
+left join dvd_rentals.inventory
+  on rental.inventory_id = inventory.inventory_id
+);
+  
+drop table if exists inner_rental_join;
+create temp table inner_rental_join as (
+select 
+  rental.customer_id,
+  rental.inventory_id,
+  inventory.film_id
+from dvd_rentals.rental 
+inner join dvd_rentals.inventory
+on rental.inventory_id = inventory.inventory_id
+);
+
+(
+  select 
+    'left join' as join_type,
+    count(*) as record_count,
+    count(distinct inventory_id) as unique_key_values 
+    from left_rental_join
+)
+union 
+  (select 
+    'inner join' as join_type,
+    count(*) as record_count,
+    count(distinct inventory_id) as unique_key_values
+    from inner_rental_join
+);
+
+--The most important thing when gauging the types of joins you should use is that relationship between the foreign keys and the target tables.
+
+
+The framework for analyzing table joins:
+
+What is the purpose of joining these two tables?
+What contextual hypotheses do we have about the data?
+How can we validate these assumptions?
+What is the distribution of foreign keys within each table?
+How many unique foreign key values exist in each table?
+
+-- drop table if exists join_parts_1_and_2;
+-- create temp table join_parts_1_and_2 as 
+-- select 
+--   rental.customer_id,
+--   inventory.film_id,
+--   film.title
+-- from dvd_rentals.rental 
+-- inner join dvd_rentals.inventory
+--   on rental.inventory_id = inventory.inventory_id
+-- inner join dvd_rentals.film
+--   on inventory.film_id = film.film_id;
+  
+-- select * from join_parts_1_and_2 
+-- limit 10;
+
+DROP TABLE IF EXISTS complete_joint_dataset;
+CREATE TEMP TABLE complete_joint_dataset AS
+SELECT
+  rental.customer_id,
+  inventory.film_id,
+  film.title,
+  film_category.category_id,
+  category.name AS category_name
+FROM dvd_rentals.rental
+INNER JOIN dvd_rentals.inventory
+  ON rental.inventory_id = inventory.inventory_id
+INNER JOIN dvd_rentals.film
+  ON inventory.film_id = film.film_id
+INNER JOIN dvd_rentals.film_category
+  ON film.film_id = film_category.film_id
+INNER JOIN dvd_rentals.category
+  ON film_category.category_id = category.category_id;
+
+SELECT * FROM complete_joint_dataset limit 10;
+
+
+drop table if exists complete_left_joint_dataset;
+create temp table complete_left_joint_dataset as 
+select 
+  rental.customer_id,
+  inventory.film_id,
+  film.title,
+  category.name as category_name 
+from dvd_rentals.rental
+left join dvd_rentals.inventory
+  on rental.inventory_id = inventory.inventory_id
+left join dvd_rentals.film
+  on inventory.film_id = film.film_id
+left join dvd_rentals.film_category
+  on film.film_id = film_category.film_id
+left join dvd_rentals.category
+  on film_category.category_id = category.category_id;
+  
+select 
+  'left join' as join_type,
+  count(*) as final_record_count
+from complete_left_joint_dataset
+union 
+select 
+  'inner join' as join_type,
+  count(*) as final_record_count
+from complete_joint_dataset;

@@ -1,0 +1,121 @@
+-- Different Ordering Window Functions
+  --These functions return integers:
+  -- ROW_NUMBER()
+  -- RANK()
+  -- DENSE_RANK()
+-- These following functions return numeric outputs between 0 and 1:
+-- PERCENT_RANK()
+-- CUME_DIST()
+
+DROP TABLE IF EXISTS ordered_window_metrics;
+CREATE TEMP TABLE ordered_window_metrics AS 
+SELECT 
+  measure_value,
+  
+  ROW_NUMBER() OVER (ORDER BY measure_value DESC) AS _row_number,
+  RANK() OVER (ORDER BY measure_value DESC) AS _rank,
+  DENSE_RANK() OVER (ORDER BY measure_value DESC) AS _dense_rank,
+  
+  ROUND(
+    (PERCENT_RANK() OVER (ORDER BY measure_value DESC)):: NUMERIC,5
+    ) AS _percent_rank,
+  ROUND(
+    (CUME_DIST() OVER (ORDER BY measure_value DESC)):: NUMERIC,5
+    ) AS _cume_dist,
+    
+  NTILE(100) OVER (ORDER BY measure_value DESC) AS _ntile
+FROM health.user_logs 
+WHERE measure = 'weight';
+
+SELECT *
+FROM ordered_window_metrics
+ORDER BY measure_value DESC 
+LIMIT 10;
+
+--Descending Order 
+DROP TABLE IF EXISTS ordered_window_metrics_desc;
+CREATE TEMP TABLE ordered_window_metrics_desc AS
+SELECT
+  measure,
+  measure_value,
+  ROW_NUMBER() OVER (
+    PARTITION BY measure
+    ORDER BY measure_value DESC
+  ) AS _row_number,
+  RANK() OVER (
+    PARTITION BY measure
+    ORDER BY measure_value DESC
+  ) AS _rank,
+  DENSE_RANK() OVER (
+    PARTITION BY measure
+    ORDER BY measure_value DESC
+  ) AS _dense_rank,
+  /* ---
+  To succesfully round the following metrics to 5 decimal places
+  we need to explicitly cast the window function output
+  from a double data type to numeric type
+  --- */
+  ROUND(
+    (
+      PERCENT_RANK() OVER (
+        PARTITION BY measure
+        ORDER BY measure_value DESC
+      )
+    )::NUMERIC,
+    5
+  ) AS _percent_rank,
+  ROUND(
+    (
+      CUME_DIST() OVER (
+        PARTITION BY measure
+        ORDER BY measure_value DESC
+      )
+    )::NUMERIC,
+    5
+  ) AS _cume_dist,
+  NTILE(100) OVER (
+    PARTITION BY measure
+    ORDER BY measure_value DESC
+  ) AS _ntile
+FROM health.user_logs;
+
+SELECT * 
+FROM ordered_window_metrics_desc 
+WHERE _row_number <= 3
+ORDER BY 
+  measure,
+  measure_value DESC;
+
+-- Combined Ascending & Descending
+/*---
+  Implementing a temporary table which has 2 window functions
+  with the help of ROW_NUMBER()
+*/
+
+DROP TABLE IF EXISTS combined_row_numbers;
+CREATE TEMP TABLE combined_row_numbers AS 
+SELECT 
+  measure,
+  measure_value,
+  ROW_NUMBER() OVER (
+    PARTITION BY measure
+    ORDER BY measure_value
+  ) AS ascending,
+  ROW_NUMBER() OVER (
+    PARTITION BY measure
+    ORDER BY measure_value DESC 
+  ) AS descending 
+FROM health.user_logs;
+
+SELECT *,
+  CASE
+    WHEN ascending <= 3 THEN 'Bottom 3'
+    WHEN descending <= 3 THEN 'Top 3'
+    END AS value_ranking
+FROM combined_row_numbers
+WHERE
+  ascending <= 3 OR
+  descending <= 3
+ORDER BY
+  measure,
+  measure_value; 
