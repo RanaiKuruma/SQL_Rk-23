@@ -1,0 +1,127 @@
+SELECT *
+FROM trading.daily_btc
+LIMIT 5;
+
+--1 What is the earliest and latest market_date values?
+--earliest_market_date:2014-09-17
+--latest_market_date:2021-02-24
+
+SELECT 
+  MIN(market_date) AS earliest_market_date,
+  MAX(market_date) AS latest_market_date
+FROM trading.daily_btc;
+
+--2 What was the historic all-time high and low values for the close_price and their dates?
+--high value of close_price : 57539.945313 ; date: 2021-02-21
+--low value of close price 178.102997 ; date: 2015-01-14
+
+(SELECT 
+  market_date,
+  close_price
+FROM trading.daily_btc
+ORDER BY close_price  DESC NULLS LAST 
+LIMIT 1 )
+
+UNION 
+
+(SELECT 
+  market_date,
+  close_price
+FROM trading.daily_btc
+ORDER BY close_price
+LIMIT 1 );
+
+--3 Which date had the most volume traded and what was the close_price for that day?
+--market_date: 2021-01-11
+--close_price: 35566.656250
+
+WITH trade_btc AS (
+  SELECT
+    market_date,
+    volume,
+    close_price,
+    ROW_NUMBER () OVER (
+      ORDER BY volume DESC NULLS LAST 
+    ) AS _row_number
+  FROM trading.daily_btc
+)
+SELECT * 
+FROM trade_btc
+WHERE _row_number = 1;
+
+--4 How many days had a low_price price which was 10% less than the open_price?
+-- 79
+
+WITH calculated_cte AS (
+  SELECT 
+    SUM(
+      CASE 
+        WHEN low_price < 0.9 * open_price THEN 1 
+        ELSE 0 
+        END
+    ) AS low_days,
+    COUNT(*) AS total_days
+  FROM trading.daily_btc
+  WHERE volume IS NOT NULL 
+)
+SELECT 
+  low_days,
+  ROUND(100 * (low_days / total_days:: NUMERIC)) AS percentage
+FROM calculated_cte;
+
+--5 What percentage of days have a higher close_price than open_price?
+-- 55 
+
+WITH calculated_cte AS (
+  SELECT 
+    SUM(
+      CASE 
+        WHEN close_price > open_price THEN 1 
+        ELSE 0 
+        END
+    ) AS high_days,
+    COUNT(*) AS total_days
+  FROM trading.daily_btc
+  WHERE volume IS NOT NULL
+)
+SELECT 
+  high_days,
+  ROUND(100 * high_days / total_days::NUMERIC) AS percentage
+FROM calculated_cte;
+
+--6 What was the largest difference between high_price and low_price and which date did it occur?
+-- Difference : 8914.339844
+-- Market_date: 2021-02-23
+
+SELECT 
+  high_price - low_price AS difference,
+  market_date
+FROM trading.daily_btc
+ORDER BY difference DESC NULLS LAST 
+LIMIT 1;
+
+--7 If you invested $10,000 on the 1st January 2016 - how much is your investment worth in 1st of February 2021? 
+--investment worth : 676303
+
+WITH start_investment AS(
+  SELECT 
+    10000 / close_price AS btc_volume,
+    close_price AS start_price
+  FROM trading.daily_btc
+  WHERE market_date = '2016-01-01'
+),
+end_investment AS (
+  SELECT 
+    close_price AS end_price
+  FROM trading.daily_btc
+  WHERE market_date = '2021-01-01'
+)
+SELECT 
+  btc_volume,
+  start_price,
+  end_price,
+  ROUND(100 * (end_price - start_price / start_price)) AS growth_rate,
+  ROUND(btc_volume * end_price) AS final_investment
+FROM start_investment
+CROSS JOIN end_investment;
+

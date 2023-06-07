@@ -1,0 +1,1430 @@
+Dashboard Data Components
+
+Company Level  Insights
+    Total number of employees
+    Average company tenure in years
+    Gender ratios
+    Average payrise percentage and amount
+
+Department Level Insights
+    Number of employees in each department
+    Current department manager tenure in years
+    Gender ratios
+    Average payrise percentage and amount
+
+Title Level Insights
+    Number of employees with each title
+    Minimum, average, standard deviation of salaries
+    Average total company tenure
+    Gender ratios
+    Average payrise percentage and amount
+
+
+Deep Dive Data Components
+
+Individual Employee Deep Dive
+    See all the various employment history ordered by effective date including salary, department, manager and title changes
+    Calculate previous historic payrise percentages and value changes
+    Calculate the previous position and department history in months with start and end dates
+    Compare an employee’s current salary, total company tenure, department, position and gender to the average benchmarks for their current position
+
+The following tables require the from_date and to_date to be updated:
+    employees.department_employee
+    employees.department_manager
+    employees.salary
+    employees.title
+
+--Our client does not want their source data modified 
+-- Do not make any changes at all the tables within employee schema 
+
+DROP SCHEMA IF EXISTS adjusted_employees CASCADE;
+CREATE SCHEMA adjusted_employees;
+
+-- employee
+DROP TABLE IF EXISTS adjusted_employees.employee;
+CREATE TABLE adjusted_employees.employee AS
+SELECT * FROM employees.employee;
+
+-- department employee
+DROP TABLE IF EXISTS adjusted_employees.department;
+CREATE TABLE adjusted_employees.department AS
+SELECT * FROM employees.department;
+
+-- department employee
+DROP TABLE IF EXISTS adjusted_employees.department_employee;
+CREATE TABLE adjusted_employees.department_employee AS
+SELECT * FROM employees.department_employee;
+
+-- department manager
+DROP TABLE IF EXISTS adjusted_employees.department_manager;
+CREATE TABLE adjusted_employees.department_manager AS
+SELECT * FROM employees.department_manager;
+
+-- salary
+DROP TABLE IF EXISTS adjusted_employees.salary;
+CREATE TABLE adjusted_employees.salary AS
+SELECT * FROM employees.salary;
+
+-- title
+DROP TABLE IF EXISTS adjusted_employees.title;
+CREATE TABLE adjusted_employees.title AS
+SELECT * FROM employees.title;
+
+-- update employee
+UPDATE adjusted_employees.employee
+SET hire_date = hire_date + INTERVAL '18 YEARS';
+
+UPDATE adjusted_employees.employee
+SET birth_date = birth_date + INTERVAL '18 YEARS';
+
+-- update adjusted_employees.department_employee
+UPDATE adjusted_employees.department_employee SET
+from_date = from_date + INTERVAL '18 YEARS';
+
+UPDATE adjusted_employees.department_employee
+SET to_date = to_date + INTERVAL '18 YEARS'
+WHERE to_date <> '9999-01-01';
+
+-- update department_manager
+UPDATE adjusted_employees.department_manager
+SET from_date = from_date + INTERVAL '18 YEARS';
+
+UPDATE adjusted_employees.department_manager
+SET to_date = to_date + INTERVAL '18 YEARS'
+WHERE to_date <> '9999-01-01';
+
+-- update salary
+UPDATE adjusted_employees.salary
+SET from_date = from_date + INTERVAL '18 YEARS';
+
+UPDATE adjusted_employees.salary
+SET to_date = to_date + INTERVAL '18 YEARS'
+WHERE to_date <> '9999-01-01';
+
+-- update title
+UPDATE adjusted_employees.title
+SET from_date = from_date + INTERVAL '18 YEARS';
+
+UPDATE adjusted_employees.title
+SET to_date = to_date + INTERVAL '18 YEARS'
+WHERE to_date <> '9999-01-01';
+
+DROP SCHEMA IF EXISTS v_employees CASCADE;
+CREATE SCHEMA v_employees;
+
+-- department
+DROP VIEW IF EXISTS v_employee.department;
+CREATE VIEW v_employees.department AS
+SELECT * FROM employees.department;
+
+-- department employee
+DROP VIEW IF EXISTS v_employees.department_employee;
+CREATE VIEW v_employees.department_employee AS
+SELECT
+  employee_id,
+  department_id,
+  from_date + interval '18 years' AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN to_date + interval '18 years'
+    ELSE to_date
+    END AS to_date
+FROM employees.department_employee;
+
+-- department manager
+DROP VIEW IF EXISTS v_employees.department_manager;
+CREATE VIEW v_employees.department_manager AS
+SELECT
+  employee_id,
+  department_id,
+  from_date + interval '18 years' AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN to_date + interval '18 years'
+    ELSE to_date
+    END AS to_date
+FROM employees.department_manager;
+
+-- employee
+DROP VIEW IF EXISTS v_employees.employee;
+CREATE VIEW v_employees.employee AS
+SELECT
+  id,
+  birth_date + interval '18 years' AS birth_date,
+  first_name,
+  last_name,
+  gender,
+  hire_date + interval '18 years' AS hire_date
+FROM employees.employee;
+
+-- salary
+DROP VIEW IF EXISTS v_employees.salary;
+CREATE VIEW v_employees.salary AS
+SELECT
+  employee_id,
+  amount,
+  from_date + interval '18 years' AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN to_date + interval '18 years'
+    ELSE to_date
+    END AS to_date
+FROM employees.salary;
+
+-- title
+DROP VIEW IF EXISTS v_employees.title;
+CREATE VIEW v_employees.title AS
+SELECT
+  employee_id,
+  title,
+  from_date + interval '18 years' AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN to_date + interval '18 years'
+    ELSE to_date
+    END AS to_date
+FROM employees.title;
+
+--Materialized view is combination of permanent table and regular view 
+-- Only uses the existing data present in the view query 
+--materialized view can only be ran on permanent tables 
+--all the tables present in the view query are actual source tables and views 
+
+DROP TABLE IF EXISTS georgi_salary CASCADE;
+CREATE TABLE georgi_salary AS 
+SELECT * 
+FROM employees.salary
+WHERE employee_id = 10001;
+
+--salary 
+DROP MATERIALIZED VIEW IF EXISTS v_employees.salary_georgi;
+CREATE MATERIALIZED VIEW v_employees.salary_georgi AS 
+SELECT 
+  employee_id,
+  amount,
+  from_date + INTERVAL '18 YEARS' AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN to_date + INTERVAL '18 YEARS'
+    ELSE to_date
+    END AS to_date
+FROM georgi_salary;
+
+-- UPSERT georgi's salary
+UPDATE georgi_salary
+SET to_date = '2003-01-01'
+WHERE to_date = '9999-01-01';
+
+INSERT INTO georgi_salary(employee_id, amount, from_date, to_date)
+VALUES (10001, 95000, '2003-01-01', '9999-01-01');
+
+SELECT *
+FROM v_employees.salary_georgi
+WHERE employee_id = 10001
+ORDER BY FROM_DATE DESC
+LIMIT 5;
+
+REFRESH MATERIALIZED VIEW v_employees.salary_georgi;
+
+SELECT * 
+FROM v_employees.salary_georgi
+WHERE employee_id = 10001
+ORDER BY from_date DESC 
+LIMIT 5;
+
+DROP SCHEMA IF EXISTS mv_employees CASCADE;
+CREATE SCHEMA mv_employees;
+
+-- department
+DROP MATERIALIZED VIEW IF EXISTS v_employee.department;
+CREATE MATERIALIZED VIEW mv_employees.department AS
+SELECT * FROM employees.department;
+
+-- department employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_employee;
+CREATE MATERIALIZED VIEW mv_employees.department_employee AS
+SELECT
+  employee_id,
+  department_id,
+  from_date + interval '18 years' AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN to_date + interval '18 years'
+    ELSE to_date
+    END AS to_date
+FROM employees.department_employee;
+
+-- department manager 
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_manager;
+CREATE MATERIALIZED VIEW mv_employees.department_manager AS 
+SELECT 
+  employee_id,
+  department_id,
+  from_date + INTERVAL '18 YEARS' AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN to_date + INTERVAL '18 YEARS'
+    ELSE to_date
+    END AS to_date
+FROM employees.department_manager;
+
+-- employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.employee;
+CREATE MATERIALIZED VIEW mv_employees.employee AS 
+SELECT 
+  id,
+  birth_date + INTERVAL '18 YEARS' AS birth_date,
+  first_name,
+  last_name,
+  gender,
+  hire_date + INTERVAL '18 YEARS' AS hire_date
+FROM employees.employee;
+
+-- salary 
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.salary;
+CREATE MATERIALIZED VIEW mv_employees.salary AS 
+SELECT 
+  employee_id,
+  amount,
+  from_date + INTERVAL '18 YEARS' AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN to_date + INTERVAL '18 YEARS'
+    ELSE to_date
+    END AS to_date
+FROM employees.salary;
+
+-- title
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.title;
+CREATE MATERIALIZED VIEW mv_employees.title AS 
+SELECT 
+  employee_id,
+  title,
+  from_date + INTERVAL '18 YEARS' AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN to_date + INTERVAL '18 YEARS'
+    ELSE to_date
+    END AS to_date
+FROM employees.title;
+
+-- Comparing our methods 
+-- Explain Plan 
+-- If we put EXPLAIN in front of any query that we’d like to run - it will actually profile the execution plan of the SQL query and return us information about how the SQL optimizer will run the query.
+EXPLAIN SELECT * FROM employees.salary;
+
+-- check data type  
+SELECT 
+  table_schema,
+  table_name,
+  column_name,
+  data_type
+FROM information_schema.columns
+WHERE 
+  table_schema = 'employees'
+  AND table_name = 'salary';
+
+-- Explain Analyze 
+EXPLAIN ANALYZE SELECT * FROM employees.salary;
+
+-- Select Comparision
+EXPLAIN ANALYZE SELECT * FROM employees.salary;
+EXPLAIN ANALYZE SELECT * FROM adjusted_employees.salary;
+EXPLAIN ANALYZE SELECT * FROM v_employees.salary;
+EXPLAIN ANALYZE SELECT * FROM mv_employees.salary;
+
+--Where filter comparision 
+EXPLAIN ANALYZE SELECT * FROM employees.salary
+WHERE employee_id = 10001;
+
+EXPLAIN ANALYZE SELECT * FROM adjusted_employees.salary
+WHERE employee_id = 10001;
+
+EXPLAIN ANALYZE SELECT * FROM v_employees.salary
+WHERE employee_id = 10001;
+
+EXPLAIN ANALYZE SELECT * FROM mv_employees.salary
+WHERE employee_id = 10001;
+
+-- With Table Indexes 
+CREATE INDEX ON adjusted_employees.salary (employee_id);
+CREATE INDEX ON mv_employees.salary (employee_id);
+
+EXPLAIN ANALYZE SELECT * FROM adjusted_employees.salary
+WHERE employee_id = 10001;
+
+EXPLAIN ANALYZE SELECT * FROM mv_employees.salary 
+WHERE employee_id = 10001;
+
+DROP TABLE IF EXISTS adjusted_employees.salary;
+CREATE TABLE adjusted_employees.salary AS
+SELECT * FROM employees.salary;
+
+-- update salary
+UPDATE adjusted_employees.salary
+SET from_date = from_date + INTERVAL '18 YEARS';
+
+UPDATE adjusted_employees.salary
+SET to_date = to_date + INTERVAL '18 YEARS'
+WHERE to_date != '9999-01-01';
+
+EXPLAIN ANALYZE SELECT * FROM adjusted_employees.salary
+WHERE employee_id = 10001;
+
+REFRESH MATERIALIZED VIEW mv_employees.salary;
+EXPLAIN ANALYZE SELECT * FROM mv_employees.salary
+WHERE employee_id = 10001;
+
+-- Snapshot and historic data
+SELECT * FROM pg_indexes WHERE schemaname = 'employees';
+--Materialized view script 
+DROP SCHEMA IF EXISTS mv_employees CASCADE;
+CREATE SCHEMA mv_employees;
+
+-- department
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department;
+CREATE MATERIALIZED VIEW mv_employees.department AS
+SELECT * FROM employees.department;
+
+
+-- department employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_employee;
+CREATE MATERIALIZED VIEW mv_employees.department_employee AS
+SELECT
+  employee_id,
+  department_id,
+  (from_date + interval '18 years')::DATE AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN (to_date + interval '18 years')::DATE
+    ELSE to_date
+    END AS to_date
+FROM employees.department_employee;
+
+-- department manager
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_manager;
+CREATE MATERIALIZED VIEW mv_employees.department_manager AS
+SELECT
+  employee_id,
+  department_id,
+  (from_date + interval '18 years')::DATE AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN (to_date + interval '18 years')::DATE
+    ELSE to_date
+    END AS to_date
+FROM employees.department_manager;
+
+-- employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.employee;
+CREATE MATERIALIZED VIEW mv_employees.employee AS
+SELECT
+  id,
+  (birth_date + interval '18 years')::DATE AS birth_date,
+  first_name,
+  last_name,
+  gender,
+  (hire_date + interval '18 years')::DATE AS hire_date
+FROM employees.employee;
+
+-- salary
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.salary;
+CREATE MATERIALIZED VIEW mv_employees.salary AS
+SELECT
+  employee_id,
+  amount,
+  (from_date + interval '18 years')::DATE AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN (to_date + interval '18 years')::DATE
+    ELSE to_date
+    END AS to_date
+FROM employees.salary;
+
+-- title
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.title;
+CREATE MATERIALIZED VIEW mv_employees.title AS
+SELECT
+  employee_id,
+  title,
+  (from_date + interval '18 years')::DATE AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN (to_date + interval '18 years')::DATE
+    ELSE to_date
+    END AS to_date
+FROM employees.title;
+
+-- Index Creation
+-- NOTE: we do not name the indexes as they will be given randomly upon creation!
+CREATE UNIQUE INDEX ON mv_employees.employee USING btree (id);
+CREATE UNIQUE INDEX ON mv_employees.department_employee USING btree (employee_id, department_id);
+CREATE INDEX        ON mv_employees.department_employee USING btree (department_id);
+CREATE UNIQUE INDEX ON mv_employees.department USING btree (id);
+CREATE UNIQUE INDEX ON mv_employees.department USING btree (dept_name);
+CREATE UNIQUE INDEX ON mv_employees.department_manager USING btree (employee_id, department_id);
+CREATE INDEX        ON mv_employees.department_manager USING btree (department_id);
+CREATE UNIQUE INDEX ON mv_employees.salary USING btree (employee_id, from_date);
+CREATE UNIQUE INDEX ON mv_employees.title USING btree (employee_id, title, from_date);
+
+-- Current vs Historic 
+SELECT * 
+FROM mv_employees.salary 
+WHERE employee_id = 10001
+ORDER BY from_date DESC 
+LIMIT 5;
+
+-- What was Georgi’s starting salary at the beginning of 2009?
+SELECT * 
+FROM mv_employees.salary
+WHERE employee_id = 10001 
+ORDER BY from_date
+LIMIT 6;
+
+SELECT * 
+FROM mv_employees.salary 
+WHERE employee_id = 10001
+  AND '2009-01-01' BETWEEN from_date AND to_date;
+
+-- What is Georgi’s current salary?
+SELECT * 
+FROM mv_employees.salary 
+WHERE employee_id = 10001
+ORDER BY from_date DESC 
+LIMIT 5;
+
+-- Georgi received a raise on 23rd of June in 2014 - how much of a percentage increase was it?
+SELECT 
+  ROUND(100 * (after_amount - before_amount) / before_amount :: NUMERIC, 2) AS percentage 
+FROM 
+(
+    SELECT 
+      amount AS before_amount
+    FROM mv_employees.salary
+    WHERE employee_id = 10001
+      AND to_date = '2014-06-23' 
+) AS t1 
+CROSS JOIN 
+(
+    SELECT 
+      amount AS after_amount
+    FROM mv_employees.salary 
+    WHERE employee_id = 10001
+      AND from_date = '2014-06-23'
+) AS t2;
+
+-- What is the dollar amount difference between Georgi’s salary at date '2012-06-25' and '2020-06-21'
+SELECT 
+  t2.amount_2020 - t1.amount_2012 AS dollar_difference 
+FROM 
+  (
+    SELECT 
+      amount AS amount_2012
+    FROM mv_employees.salary
+    WHERE employee_id = 10001
+      AND '2012-06-25' BETWEEN from_date AND to_date
+  ) AS t1 
+CROSS JOIN 
+(
+  SELECT 
+    amount AS amount_2020
+  FROM mv_employees.salary
+  WHERE employee_id = 10001
+   AND '2020-06-21' BETWEEN from_date AND to_date
+) AS t2 ;
+
+-- Data Exploration 
+SELECT * FROM mv_employees.employee 
+LIMIT 5;
+
+WITH id_cte AS (
+  SELECT 
+    id,
+    COUNT(*) AS row_count
+  FROM mv_employees.employee
+  GROUP BY id 
+)
+SELECT 
+  row_count,
+  COUNT(DISTINCT id) AS employee_count 
+FROM id_cte
+GROUP BY row_count 
+ORDER BY row_count;
+
+-- Valid Data Points 
+SELECT 
+  to_date,
+  COUNT(*) AS record_count,
+  COUNT(DISTINCT employee_id) AS employee_count
+FROM mv_employees.salary 
+GROUP BY to_date
+ORDER BY to_date DESC 
+LIMIT 5;
+
+SELECT 
+  COUNT(DISTINCT employee_id) AS distinct_count
+FROM mv_employees.salary;
+
+-- For each employee who no longer has a valid salary data point - which year had the most employee churn and how many employees left that year?
+ WITH cte AS (
+  SELECT 
+    employee_id,
+    MAX(to_date) AS final_date
+  FROM mv_employees.salary
+  GROUP BY employee_id
+)
+SELECT 
+  EXTRACT(YEAR FROM final_date) AS churn_year,
+  COUNT(*) AS employee_count
+FROM cte 
+WHERE final_date != '9999-01-01'
+GROUP BY churn_year
+ORDER BY employee_count DESC;
+
+-- What is the average latest percentage and dollar amount change in salary for each employee who has a valid current salary record?
+WITH cte AS (
+  SELECT 
+    employee_id,
+    to_date,
+    amount,
+    LAG(amount) OVER (
+      PARTITION BY employee_id
+      ORDER BY to_date
+    ) AS previous_amount
+  FROM mv_employees.salary
+)
+SELECT 
+  AVG(
+    100 * (amount - previous_amount) / previous_amount::NUMERIC
+  ) AS latest_percentage_change,
+  AVG(amount - previous_amount) AS latest_dollar_change
+FROM cte 
+WHERE to_date = '9999-01-01';
+
+-- Department Information 
+SELECT * 
+FROM mv_employees.department_employee LIMIT 5;
+
+-- No of employees in each and every department (generating a unique row for each employee)
+SELECT 
+  to_date,
+  COUNT(*) AS record_count,
+  COUNT(DISTINCT employee_id) AS employee_count
+FROM mv_employees.department_employee 
+GROUP BY to_date
+ORDER BY to_date DESC 
+LIMIT 5;
+
+SELECT 
+  COUNT(DISTINCT employee_id) AS distinct_count
+FROM mv_employees.department_employee;
+
+SELECT * FROM mv_employees.department;
+
+SELECT 
+  to_date,
+  COUNT(*) AS record_count,
+  COUNT(DISTINCT employee_id) AS employee_count
+FROM mv_employees.title
+GROUP BY to_date
+ORDER BY to_date DESC 
+LIMIT 5;
+
+SELECT 
+  COUNT(DISTINCT employee_id) AS distinct_count
+FROM mv_employees.title;
+
+-- Join Historic Tables 
+--Naive Joins
+
+DROP TABLE IF EXISTS naive_join_table;
+CREATE TEMP TABLE naive_join_table AS
+SELECT
+  employee.id,
+  employee.birth_date,
+  employee.first_name,
+  employee.last_name,
+  employee.gender,
+  employee.hire_date,
+  -- we do not need title.employee_id as employee.id is already included!
+  title.title,
+  title.from_date AS title_from_date,
+  title.to_date AS title_to_date,
+  -- same goes for the title.employee_id column
+  salary.amount,
+  salary.from_date AS salary_from_date,
+  salary.to_date AS salary_to_date,
+  -- same for department_employee.employee_id
+  -- shorten department_employee to dept for the aliases
+  department_employee.department_id,
+  department_employee.from_date AS dept_from_date,
+  department_employee.to_date AS dept_to_date,
+  -- we do not need department.department_id as it is already included!
+  department.dept_name
+FROM mv_employees.employee
+INNER JOIN mv_employees.title
+  ON employee.id = title.employee_id
+INNER JOIN mv_employees.salary
+  ON employee.id = salary.employee_id
+INNER JOIN mv_employees.department_employee
+  ON employee.id = department_employee.employee_id
+-- NOTE: department is joined only to the department_employee table!
+INNER JOIN mv_employees.department
+  ON department_employee.department_id = department.id;
+
+-- Inspecting Counts
+SELECT 
+  COUNT(*) AS row_count
+FROM naive_join_table;
+
+-- Inspecting Individuals 
+SELECT * 
+FROM naive_join_table 
+WHERE id = 10001
+ORDER BY salary_to_date DESC;
+
+SELECT * 
+FROM naive_join_table 
+WHERE id = 11669
+ORDER BY salary_to_date DESC ;
+
+SELECT * 
+FROM naive_join_table 
+WHERE id = 11669
+  AND salary_to_date = '9999-01-01';
+
+-- Remove Duplicates 
+SELECT * 
+FROM naive_join_table
+WHERE id = 11669
+  AND salary_to_date = '9999-01-01'
+  AND title_to_date = '9999-01-01'
+  AND dept_to_date = '9999-01-01';
+
+DROP TABLE IF EXISTS current_join_table;
+CREATE TEMP TABLE current_join_table AS
+SELECT
+  employee.id,
+  employee.birth_date,
+  employee.first_name,
+  employee.last_name,
+  employee.gender,
+  employee.hire_date,
+  -- we do not need title.employee_id as employee.id is already included!
+  title.title,
+  title.from_date AS title_from_date,
+  title.to_date AS title_to_date,
+  -- same goes for the title.employee_id column
+  salary.amount,
+  salary.from_date AS salary_from_date,
+  salary.to_date AS salary_to_date,
+  -- same for department_employee.employee_id
+  -- shorten department_employee to dept for the aliases
+  department_employee.department_id,
+  department_employee.from_date AS dept_from_date,
+  department_employee.to_date AS dept_to_date,
+  -- we do not need department.department_id as it is already included!
+  department.dept_name
+FROM mv_employees.employee
+INNER JOIN mv_employees.title
+  ON employee.id = title.employee_id
+INNER JOIN mv_employees.salary
+  ON employee.id = salary.employee_id
+INNER JOIN mv_employees.department_employee
+  ON employee.id = department_employee.employee_id
+-- NOTE: department is joined only to the department_employee table!
+INNER JOIN mv_employees.department
+  ON department_employee.department_id = department.id
+WHERE salary.to_date = '9999-01-01'
+  AND title.to_date = '9999-01-01'
+  AND department_employee.to_date = '9999-01-01';
+
+SELECT 
+  COUNT(*) AS row_count
+FROM current_join_table;
+
+
+--Exercises(Section 8)
+
+-- What is the average salary of someone in the Production department?
+SELECT 
+  AVG(amount) AS avg_production_salary
+FROM current_join_table
+WHERE dept_name = 'Production';
+
+-- Which position has the highest average salary?
+SELECT 
+  title,
+  AVG(amount) AS highest_position_avg_salary
+FROM current_join_table
+GROUP BY title
+ORDER BY highest_position_avg_salary DESC 
+LIMIT 5;
+
+-- Which department has the lowest average salary?
+SELECT 
+  dept_name,
+  AVG(amount) AS dept_lowest_avg_salary
+FROM current_join_table
+GROUP BY dept_name 
+ORDER BY dept_lowest_avg_salary
+LIMIT 1;
+
+--Average Salary Increase 
+WITH lag_data AS (
+  SELECT
+    employee_id,
+    to_date,
+    amount AS current_amt,
+    LAG(amount) OVER (PARTITION BY employee_id ORDER BY to_date) AS previous_amt
+  FROM mv_employees.salary 
+  WHERE employee_id = 10001
+)
+
+SELECT 
+  employee_id,
+  current_amt - previous_amt AS salary_amt_change,
+  100 * (current_amt - previous_amt) / previous_amt::NUMERIC AS salary_percentage_change
+FROM lag_data 
+-- For latest records use to_date 
+WHERE to_date = '9999-01-01';
+
+--Historic View 
+SELECT 
+  title,
+  title_from_date,
+  title_to_date,
+  amount,
+  salary_from_date,
+  salary_to_date,
+  dept_name,
+  dept_from_date,
+  dept_to_date
+FROM naive_join_table 
+WHERE id = 11669
+ORDER BY 
+  title_to_date DESC,
+  salary_to_date DESC,
+  dept_to_date DESC;
+
+-- Row-wise Date Calculations
+-- We can use MAX and MIN functions but as there are multiple columns we will need to use equivalent functions GREATEST and LEAST 
+
+-- Current Data Points 
+SELECT 
+  title,
+  dept_name,
+  amount,
+  GREATEST (
+    title_from_date,
+    salary_from_date,
+    dept_from_date
+  ) AS effective_date,
+  LEAST (
+    title_to_date,
+    salary_to_date,
+    dept_to_date
+  ) AS expiry_date,
+  title_from_date,
+  salary_from_date,
+  dept_from_date,
+  title_to_date,
+  salary_to_date,
+  dept_to_date
+FROM naive_join_table
+WHERE id = 11669 
+  AND title_to_date = '9999-01-01'
+  AND dept_to_date = '9999-01-01'
+  AND salary_to_date = '9999-01-01';
+
+-- All data points 
+SELECT * FROM (
+  SELECT 
+  title,
+  dept_name,
+  amount,
+  GREATEST (
+    title_from_date,
+    salary_from_date,
+    dept_from_date
+  ) AS effective_date,
+  LEAST (
+    title_to_date,
+    salary_to_date,
+    dept_to_date
+  ) AS expiry_date,
+  title_from_date,
+  salary_from_date,
+  dept_from_date,
+  title_to_date,
+  salary_to_date,
+  dept_to_date
+FROM naive_join_table
+WHERE 
+  id = 11669 
+) subquery
+WHERE effective_date <= expiry_date
+ORDER BY effective_date;
+
+-- Logic Clauses 
+DROP TABLE IF EXISTS employee_events; 
+CREATE TEMP TABLE employee_events AS 
+SELECT * FROM (
+  SELECT 
+    id,
+    title,
+    dept_name,
+    amount,
+    GREATEST (
+      title_from_date,
+      salary_from_date,
+      dept_from_date
+    ) AS effective_date,
+    LEAST (
+      title_to_date,
+      salary_to_date,
+      dept_to_date
+    ) AS expiry_date,
+    title_from_date,
+    salary_from_date,
+    dept_from_date,
+    title_to_date,
+    salary_to_date,
+    dept_to_date
+FROM naive_join_table
+WHERE 
+  id = 11669 
+) subquery
+WHERE effective_date <= expiry_date
+ORDER BY effective_date;
+
+-- Salary Events 
+WITH lag_data AS (
+SELECT
+  id,
+  title,
+  dept_name,
+  amount,
+-- we have `id` in our table not employee_id!
+  LAG(amount) OVER (
+    PARTITION BY id
+    ORDER BY effective_date
+  ) AS previous_amount,
+  effective_date,
+  expiry_date
+FROM employee_events
+-- we have `id` in our table not employee_id!
+WHERE id = 11669
+)
+SELECT
+  id,
+  title,
+  dept_name,
+  amount,
+  previous_amount,
+  CASE
+    WHEN amount > previous_amount
+      THEN 'Salary Increase'
+    WHEN amount < previous_amount
+      THEN 'Salary Decrease'
+    ELSE NULL
+  END AS event_name,
+  effective_date,
+  expiry_date
+FROM lag_data
+ORDER BY effective_date;
+
+SELECT * FROM mv_employees.department_manager LIMIT 5;
+
+-- department employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_employee;
+CREATE MATERIALIZED VIEW mv_employees.department_employee AS
+SELECT
+  employee_id,
+  department_id,
+  from_date + interval '18 years' AS from_date,
+  CASE
+    WHEN to_date <> '9999-01-01' THEN to_date + interval '18 years'
+    ELSE to_date
+    END AS to_date
+FROM employees.department_employee;
+
+-- department manager 
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_manager;
+CREATE MATERIALIZED VIEW mv_employees.department_manager AS 
+SELECT 
+  employee_id,
+  department_id,
+  from_date + INTERVAL '18 YEARS' AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN to_date + INTERVAL '18 YEARS'
+    ELSE to_date
+    END AS to_date
+FROM employees.department_manager;
+
+-- employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.employee;
+CREATE MATERIALIZED VIEW mv_employees.employee AS 
+SELECT 
+  id,
+  birth_date + INTERVAL '18 YEARS' AS birth_date,
+  first_name,
+  last_name,
+  gender,
+  hire_date + INTERVAL '18 YEARS' AS hire_date
+FROM employees.employee;
+
+-- salary 
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.salary;
+CREATE MATERIALIZED VIEW mv_employees.salary AS 
+SELECT 
+  employee_id,
+  amount,
+  from_date + INTERVAL '18 YEARS' AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN to_date + INTERVAL '18 YEARS'
+    ELSE to_date
+    END AS to_date
+FROM employees.salary;
+
+-- title
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.title;
+CREATE MATERIALIZED VIEW mv_employees.title AS 
+SELECT 
+  employee_id,
+  title,
+  from_date + INTERVAL '18 YEARS' AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN to_date + INTERVAL '18 YEARS'
+    ELSE to_date
+    END AS to_date
+FROM employees.title;
+
+DROP TABLE IF EXISTS historic_join_table ;
+CREATE TEMP TABLE historic_join_table AS 
+WITH join_data AS (
+  SELECT 
+    employee.id AS employee_id,
+    employee.birth_date,
+    CONCAT_WS(' ', employee.first_name, employee.last_name) AS full_name,
+    employee.gender,
+    employee.hire_date,
+    title.title,
+    salary.amount AS salary,
+    department.dept_name AS department,
+    CONCAT_WS (' ', manager.first_name, manager.last_name) AS manager,
+    GREATEST (
+      title.from_date,
+      salary.from_date,
+      department_employee.from_date,
+      department_manager.from_date
+    ) AS effective_date,
+    GREATEST (
+      title.to_date,
+      salary.to_date,
+      department_employee.to_date,
+      department_manager.to_date
+    ) AS expiry_date
+  FROM mv_employees.employee
+  INNER JOIN mv_employees.title
+  ON employee.id = title.employee_id
+INNER JOIN mv_employees.salary
+  ON employee.id = salary.employee_id
+INNER JOIN mv_employees.department_employee
+  ON employee.id = department_employee.employee_id
+-- NOTE: department is joined only to the department_employee table!
+INNER JOIN mv_employees.department
+  ON department_employee.department_id = department.id
+-- add in the department_manager information onto the department table
+INNER JOIN mv_employees.department_manager
+  ON department.id = department_manager.department_id
+-- join again on the employee_id field to another employee for manager's info
+INNER JOIN mv_employees.employee AS manager
+  ON department_manager.employee_id = manager.id
+)
+SELECT 
+  employee_id,
+  birth_date,
+  full_name,
+  gender,
+  hire_date,
+  title,
+  LAG(title) OVER w AS previous_title,
+  salary,
+  LAG(salary) OVER w AS previous_salary,
+  department,
+  LAG(department) OVER w AS previous_department,
+  manager,
+  LAG(manager) OVER w AS previous_manager,
+  effective_date,
+  expiry_date
+FROM join_data 
+WHERE effective_date <= expiry_date 
+WINDOW 
+  w AS (PARTITION BY employee_id ORDER BY effective_date);
+  
+SELECT * 
+FROM historic_join_table 
+WHERE employee_id = 11669 
+ORDER BY effective_date;
+
+
+
+
+
+
+
+
+
+
+--Exploration 
+-- Data Exploration
+
+-- Table Indexes 
+SELECT * 
+FROM pg_indexes
+WHERE schemaname = 'employees';
+
+--Indiviudal Table Analysis 
+-- Employee Table 
+SELECT * 
+FROM employees.employee
+LIMIT 5;
+
+--confirm that there is a single record per employee 
+WITH id_cte AS (
+  SELECT 
+    id,
+    COUNT(*) AS row_count
+  FROM employees.employee
+  GROUP BY id
+)
+SELECT 
+  row_count,
+  COUNT(DISTINCT id) AS employee_count
+FROM id_cte 
+GROUP BY row_count
+ORDER BY row_count;
+
+-- department table 
+SELECT *
+FROM employees.department;
+
+-- department_employee
+SELECT * 
+FROM employees.department_employee
+LIMIT 5;
+
+-- No of employees in the department till date 
+SELECT 
+  to_date,
+  COUNT(*) AS record_count
+FROM employees.department_employee
+GROUP BY to_date
+ORDER BY record_count DESC 
+LIMIT 5;
+
+-- Determining the relationship
+WITH employee_id_cte AS (
+SELECT 
+  employee_id,
+  COUNT(*) AS row_count
+FROM employees.department_employee
+GROUP BY employee_id
+)
+SELECT 
+  row_count,
+  COUNT(DISTINCT employee_id) AS employee_count 
+FROM employee_id_cte 
+GROUP BY row_count
+ORDER BY row_count DESC;
+
+-- department_manager
+SELECT * 
+FROM employees.department_manager
+LIMIT 5;
+
+-- determination of how many records are valid for the current period
+SELECT  
+  to_date,
+  COUNT (*) AS record_count
+FROM employees.department_manager
+GROUP BY to_date
+ORDER BY record_count DESC;
+
+-- determination of relationship 
+WITH employee_id_cte AS (
+SELECT 
+  employee_id,
+  COUNT(*) AS row_count
+FROM employees.department_manager
+GROUP BY employee_id
+)
+
+SELECT 
+  row_count,
+  COUNT(DISTINCT employee_id) AS employee_count 
+FROM employee_id_cte 
+GROUP BY row_count 
+ORDER BY row_count DESC;
+
+-- salary table 
+SELECT * 
+FROM employees.salary
+WHERE employee_id = 10001
+ORDER BY from_date DESC ;
+
+--determination of present records 
+SELECT 
+  to_date,
+  COUNT(*) AS record_count,
+  COUNT(DISTINCT employee_id) AS employee_count
+FROM employees.salary 
+GROUP BY to_date 
+ORDER BY to_date DESC 
+LIMIT 5;
+
+-- determination of relationship 
+WITH employee_id_cte AS (
+SELECT 
+  employee_id,
+  COUNT(*) AS row_count
+FROM employees.salary
+GROUP BY employee_id
+)
+
+SELECT 
+  row_count,
+  COUNT(DISTINCT employee_id) AS employee_count
+FROM employee_id_cte 
+GROUP BY row_count 
+ORDER BY row_count DESC;
+
+-- title table 
+SELECT * 
+FROM employees.title 
+LIMIT 5;
+
+-- determination of present records 
+SELECT 
+  to_date,
+  COUNT(*) AS record_count,
+  COUNT(DISTINCT employee_id) AS employee_count
+FROM employees.title 
+GROUP BY to_date 
+ORDER BY to_date DESC 
+LIMIT 5;
+
+-- determination of relationship
+WITH employee_id_cte AS (
+SELECT 
+  employee_id,
+  COUNT(*) AS row_count
+FROM employees.title
+GROUP BY employee_id
+)
+SELECT 
+  row_count,
+  COUNT(DISTINCT employee_id) AS employee_count
+FROM employee_id_cte 
+GROUP BY row_count 
+ORDER BY row_count DESC ;
+
+-- Analysis 
+-- Data Cleaning 
+DROP SCHEMA IF EXISTS mv_employees CASCADE;
+CREATE SCHEMA mv_employees;
+
+-- department
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department;
+CREATE MATERIALIZED VIEW mv_employees.department AS 
+SELECT * FROM employees.department;
+
+-- department_employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_employee;
+CREATE MATERIALIZED VIEW mv_employees.department_employee AS 
+SELECT 
+  employee_id,
+  department_id,
+  (from_date + INTERVAL '18 YEARS'):: DATE AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN (to_date + INTERVAL '18 YEARS'):: DATE 
+    ELSE to_date
+    END AS to_date
+FROM employees.department_employee;
+
+-- department_manager
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.department_manager;
+CREATE MATERIALIZED VIEW mv_employees.department_manager AS 
+SELECT 
+  employee_id,
+  department_id,
+  (from_date + INTERVAL '18 YEARS'):: DATE AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN (to_date + INTERVAL '18 YEARS'):: DATE 
+    ELSE to_date
+    END AS to_date
+FROM employees.department_manager;
+
+-- employee
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.employee;
+CREATE MATERIALIZED VIEW mv_employees.employee AS 
+SELECT 
+  id,
+  (birth_date + INTERVAL '18 YEARS'):: DATE AS birth_date,
+  first_name,
+  last_name,
+  gender,
+  (hire_date + INTERVAL '18 YEARS'):: DATE AS hire_date
+FROM employees.employee;
+
+-- salary
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.salary;
+CREATE MATERIALIZED VIEW mv_employees.salary AS 
+SELECT 
+  employee_id,
+  amount,
+  (from_date + INTERVAL '18 YEARS'):: DATE AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN (to_date + INTERVAL '18 YEARS'):: DATE 
+    ELSE to_date
+    END AS to_date
+FROM employees.salary;
+
+-- title
+DROP MATERIALIZED VIEW IF EXISTS mv_employees.title;
+CREATE MATERIALIZED VIEW mv_employees.title AS 
+SELECT 
+  employee_id,
+  title,
+  (from_date + INTERVAL '18 YEARS'):: DATE AS from_date,
+  CASE 
+    WHEN to_date != '9999-01-01' THEN (to_date + INTERVAL '18 YEARS'):: DATE 
+    ELSE to_date
+    END AS to_date
+FROM employees.title;
+
+-- Index Creation 
+CREATE UNIQUE INDEX ON mv_employees.employee USING btree (id);
+CREATE UNIQUE INDEX ON mv_employees.department_employee USING btree (employee_id, department_id);
+CREATE INDEX        ON mv_employees.department_employee USING btree (department_id);
+CREATE UNIQUE INDEX ON mv_employees.department USING btree (id);
+CREATE UNIQUE INDEX ON mv_employees.department USING btree (dept_name);
+CREATE UNIQUE INDEX ON mv_employees.department_manager USING btree (employee_id, department_id);
+CREATE INDEX        ON mv_employees.department_manager USING btree (department_id);
+CREATE UNIQUE INDEX ON mv_employees.salary USING btree (employee_id, from_date);
+CREATE UNIQUE INDEX ON mv_employees.title USING btree (employee_id, title, from_date);
+
+-- Current Snapshot Analysis 
+-- 1 current employee snapshot 
+-- note the CASCADE option as there may be derived views downstream
+DROP VIEW IF EXISTS mv_employees.current_employee_snapshot CASCADE;
+CREATE VIEW mv_employees.current_employee_snapshot AS
+-- apply LAG to get previous salary amount for all employees
+WITH cte_previous_salary AS (
+  SELECT * FROM (
+    SELECT
+      employee_id,
+      to_date,
+      LAG(amount) OVER (
+        PARTITION BY employee_id
+        ORDER BY from_date
+      ) AS amount
+    FROM mv_employees.salary
+  ) all_salaries
+  -- keep only latest valid previous_salary records only
+  -- must have this in subquery to account for execution order
+  WHERE to_date = '9999-01-01'
+),
+-- combine all elements into a joined CTE
+cte_joined_data AS (
+  SELECT
+    employee.id AS employee_id,
+    employee.gender,
+    employee.hire_date,
+    title.title,
+    salary.amount AS salary,
+    cte_previous_salary.amount AS previous_salary,
+    department.dept_name AS department,
+    -- need to keep the title and department from_date columns for tenure
+    title.from_date AS title_from_date,
+    department_employee.from_date AS department_from_date
+  FROM mv_employees.employee
+  INNER JOIN mv_employees.title
+    ON employee.id = title.employee_id
+  INNER JOIN mv_employees.salary
+    ON employee.id = salary.employee_id
+  -- join onto the CTE we created in the first step
+  INNER JOIN cte_previous_salary
+    ON employee.id = cte_previous_salary.employee_id
+  INNER JOIN mv_employees.department_employee
+    ON employee.id = department_employee.employee_id
+  -- NOTE: department is joined only to the department_employee table!
+  INNER JOIN mv_employees.department
+    ON department_employee.department_id = department.id
+  -- apply where filter to keep only relevant records
+  WHERE salary.to_date = '9999-01-01'
+    AND title.to_date = '9999-01-01'
+    AND department_employee.to_date = '9999-01-01'
+),
+-- finally we can apply all our calculations in this final output
+final_output AS (
+  SELECT
+    employee_id,
+    gender,
+    title,
+    salary,
+    department,
+    -- salary change percentage
+    ROUND(
+      100 * (salary - previous_salary) / previous_salary::NUMERIC,
+      2
+    ) AS salary_percentage_change,
+    -- tenure calculations
+    DATE_PART('year', now()) -
+      DATE_PART('year', hire_date) AS company_tenure_years,
+    DATE_PART('year', now()) -
+      DATE_PART('year', title_from_date) AS title_tenure_years,
+    DATE_PART('year', now()) -
+      DATE_PART('year', department_from_date) AS department_tenure_years
+  FROM cte_joined_data
+)
+SELECT * FROM final_output;
+
+SELECT * 
+FROM mv_employees.current_employee_snapshot
+LIMIT 5;
+
+-- Dashboard Aggregation Views 
+--1 Company Level 
+-- company level aggregation view
+DROP VIEW IF EXISTS mv_employees.company_level_dashboard;
+CREATE VIEW mv_employees.company_level_dashboard AS
+SELECT
+  gender,
+  COUNT(*) AS employee_count,
+  ROUND(100 * COUNT(*)::NUMERIC / SUM(COUNT(*)) OVER ()) AS employee_percentage,
+  ROUND(AVG(company_tenure_years)) AS company_tenure,
+  ROUND(AVG(salary)) AS avg_salary,
+  ROUND(AVG(salary_percentage_change)) AS avg_salary_percentage_change,
+  -- salary statistics
+  ROUND(MIN(salary)) AS min_salary,
+  ROUND(MAX(salary)) AS max_salary,
+  ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary)) AS median_salary,
+  ROUND(
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY salary) -
+    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY salary)
+  ) AS inter_quartile_range,
+  ROUND(STDDEV(salary)) AS stddev_salary
+FROM mv_employees.current_employee_snapshot
+GROUP BY gender;
+
+-- department level
+DROP VIEW IF EXISTS mv_employees.company_level_dashboard;
+CREATE VIEW mv_employees.company_level_dashboard AS 
+SELECT 
+  gender,
+  department,
+  COUNT(*) AS employee_count,
+  ROUND(100 * COUNT(*)::NUMERIC / SUM(COUNT(*)) OVER ()) AS employee_percentage,
+  ROUND(AVG(company_tenure_years)) AS company_tenure,
+  ROUND(AVG(salary)) AS avg_salary,
+  ROUND(AVG(salary_percentage_change)) AS avg_salary_percentage_change,
+  -- salary statistics
+  ROUND(MIN(salary)) AS min_salary,
+  ROUND(MAX(salary)) AS max_salary,
+  ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary)) AS median_salary,
+  ROUND(
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY salary) -
+    PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY salary)
+  ) AS inter_quartile_range,
+  ROUND(STDDEV(salary)) AS stddev_salary
+FROM mv_employees.current_employee_snapshot
+GROUP BY gender, department;
